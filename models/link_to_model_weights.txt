@@ -1,0 +1,8 @@
+Model weights can be found in a folder on google drive via a link:
+https://drive.google.com/drive/folders/1zCWwTxLV9QmOBBQpseIF4kpzojLDamwE?usp=drive_link
+
+Weights of version 1:
+https://drive.google.com/file/d/1WQZ93kGmcuu2zLo9at-Ir8rzJ7XsTtiJ/view?usp=drive_link
+
+Weights of version 2:
+https://drive.google.com/file/d/1cQm_dLLu2OPCRONIdL7JgIdkoeGNViHu/view?usp=drive_link

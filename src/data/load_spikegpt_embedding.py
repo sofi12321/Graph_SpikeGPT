@@ -1,17 +1,10 @@
-% !git clone https://huggingface.co/ridger/SpikeGPT-OpenWebText-216M
-% !git clone https://github.com/ridgerchu/SpikeGPT.git
-% !pip install torch matplotlib numpy tqdm torchvision scipy ninja accelerate transformers
-% %cd SpikeGPT
-
 import numpy as np
-import math, os, sys, types, time, gc
+import os, sys, types
 import torch
-from src.utils import TOKENIZER
-from src.model_run import RWKV_RNN
-import matplotlib.ticker as ticker
 from torch import nn
 
-def load_embedding_weights(model_path):
+
+def prepare_env():
     try:
         os.environ["CUDA_VISIBLE_DEVICES"] = sys.argv[1]
     except:
@@ -22,17 +15,20 @@ def load_embedding_weights(model_path):
     np.set_printoptions(precision=4, suppress=True, linewidth=200)
     args = types.SimpleNamespace()
 
-    args.RUN_DEVICE = "cpu" # 'cuda' // 'cpu' (already fast)
-    args.FLOAT_MODE = "fp32" # fp16 (good for GPU, does not work for CPU) // fp32 (good for CPU) // bf16 (less accurate, but works for CPU)
-    os.environ["RWKV_JIT_ON"] = '1' # '1' or '0'. very useful for GPU/CPU fp32, but might be harmful for GPU fp16. please benchmark !!!    
+    args.RUN_DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'  # 'cuda' // 'cpu' (already fast)
+    args.FLOAT_MODE = "fp32"  # fp16 (good for GPU, does not work for CPU) // fp32 (good for CPU) // bf16 (less accurate, but works for CPU)
+    os.environ[
+        "RWKV_JIT_ON"] = '1'  # '1' or '0'. very useful for GPU/CPU fp32, but might be harmful for GPU fp16. please benchmark !!!
     vocab_size = 50277
 
-    MODEL_NAME = model_path + 'SpikeGPT-216M'
+    # MODEL_NAME = model_path + 'SpikeGPT-216M'
     n_layer = 18
     n_embd = 768
     ctx_len = 1024
 
-    args.MODEL_NAME = MODEL_NAME
+    args.MODEL_NAME = 'SpikeGPT-216M'
+
+    # args.MODEL_NAME = MODEL_NAME
     args.n_layer = n_layer
     args.n_embd = n_embd
     args.ctx_len = ctx_len
@@ -42,17 +38,23 @@ def load_embedding_weights(model_path):
     args.grad_cp = 0
     args.my_pos_emb = 0
     os.environ["RWKV_RUN_DEVICE"] = args.RUN_DEVICE
+    return args
+
+
+def load_embedding_weights(model_path, args):
+    # Return nn.Embedding with weights from SpikeGPT embedding
+    MODEL_NAME = model_path + 'SpikeGPT-216M'
+    args.MODEL_NAME = MODEL_NAME
 
     # Load pretrained state
     model = RWKV_RNN(args)
 
     # Get embedding layer from the model
-    emb = nn.Embedding(num_embeddings=vocab_size, embedding_dim=n_embd)
-    # emb.weight.data = torch.rand(num_node,embedding_dim)
-    # print(emb.weight.data)
+    emb = nn.Embedding(num_embeddings=args.vocab_size, embedding_dim=args.n_embd)
     emb.weight.data = model.w.emb.weight.data
 
     return emb
+
 
 def load_tokenizer():
     TOKEN_MODE = "pile"
@@ -74,11 +76,27 @@ def transform_text_pretrained_embedding(text, emb, tokenizer):
         ctx = [tokenizer.stoi.get(s, tokenizer.UNKNOWN_CHAR) for s in text]
     else:
         ctx = tokenizer.tokenizer.encode(text)
-    print("Number of tokens:", len(ctx))
+    # print("Number of tokens:", len(ctx))
 
     return emb(torch.tensor(ctx))
 
-emb = load_embedding_weights("/content/SpikeGPT-OpenWebText-216M/")
-tokenizer = load_tokenizer()
-text = "In a shocking finding, scientist discovered a herd of dragons living in a remote, previously unexplored valley, in Tibet."
-transform_text_pretrained_embedding(text, emb, tokenizer)
+
+def tokenize(text, tokenizer):
+    if type(text) == str:
+        text = text.lower()
+    if tokenizer.charMode:
+        context = tokenizer.refine_context(text)
+        ctx = [tokenizer.stoi.get(s, tokenizer.UNKNOWN_CHAR) for s in context]
+    else:
+        ctx = tokenizer.tokenizer.encode(text)
+    return ctx
+
+
+if __name__ == "__main__":
+    # Clone SpikeGPT to the src.third_party folder
+    args = prepare_env()
+    from scr.third_party.SpikeGPT.src.utils import TOKENIZER
+    from scr.third_party.SpikeGPT.src.model_run import RWKV_RNN
+
+    emb = load_embedding_weights("/content/SpikeGPT-OpenWebText-216M/", args)
+    tokenizer = load_tokenizer()
